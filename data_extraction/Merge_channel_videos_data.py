@@ -1,9 +1,9 @@
 import pandas as pd
 import os
 
-data_path = 'data.csv'
-channel_path = 'channel_data.csv'
-output_path = 'raw_data.csv'
+data_path = './data/data.csv'
+channel_path = './data/channel_data.csv'
+output_path = './data/raw_data.csv'
 
 print(f"Chargement de {data_path}...")
 try:
