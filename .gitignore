@@ -1,2 +1,4 @@
 key.txt
 jsons
+__pycache__/
+test.py
