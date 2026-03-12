@@ -30,10 +30,9 @@ def fetch_channel_info(channel_id: str) -> dict | None:
     if not channel_id.startswith("UC"):
         print(f"   ⚠️  channel_id invalide (doit commencer par UC) : {channel_id}")
         return None
-
-    playlist_id  = "UUSH" + channel_id[2:]
-    playlist_url = f"https://www.youtube.com/playlist?list={playlist_id}"
-
+ 
+    playlist_url = f"https://www.youtube.com/channel/{channel_id}/shorts"
+ 
     ydl_opts = {
         "quiet":        True,
         "no_warnings":  True,
@@ -63,7 +62,6 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         subscriber_count        → taille de l'audience
         creator_tier            → nano / micro / mid / macro
         total_videos            → volume de contenu produit
-        channel_age_days        → ancienneté (signal de maturité)
  
     ACTIVITÉ RÉCENTE (basée sur les 30 derniers Shorts)
         avg_views               → moyenne des vues sur les 30 derniers
@@ -72,10 +70,8 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         max_views               → pic de viralité atteint
         avg_like_rate           → taux de like moyen
         avg_duration            → durée moyenne des Shorts
-        upload_frequency_days   → fréquence de publication (jours entre posts)
  
     CONTENU
-        pct_has_music           → % de vidéos avec musique/son
         avg_title_length        → longueur moyenne des titres
         avg_hook_count          → nb moyen de hook words dans les titres
         avg_emoji_count         → nb moyen d'emojis dans les titres
@@ -101,24 +97,12 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
     elif subs < 1_000_000:    creator_tier = "mid"
     else:                     creator_tier = "macro"
  
-    # Date de création de la chaîne (si disponible)
-    channel_age_days = None
-    if info.get("channel_start_date"):
-        try:
-            start = datetime.strptime(info["channel_start_date"], "%Y%m%d").replace(tzinfo=timezone.utc)
-            channel_age_days = (datetime.now(timezone.utc) - start).days
-        except Exception:
-            pass
- 
     total_videos = int(info.get("playlist_count") or len(entries))
  
     # ── Stats sur les Shorts de l'échantillon ─────────────────
     views_list      = []
     like_rates      = []
     durations       = []
-    pub_dates       = []
-    pct_vert        = []
-    pct_music       = []
     title_lengths   = []
     hook_counts     = []
     emoji_counts    = []
@@ -136,15 +120,6 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         like_rates.append(l / max(v, 1))
         durations.append(d)
  
-        # Orientation
-        w = e.get("width")  or 0
-        h = e.get("height") or 0
-        pct_vert.append(1 if (w and h and w / h < 1) else 0)
- 
-        # Musique
-        audio = e.get("track_id") or e.get("track") or e.get("album")
-        pct_music.append(1 if audio else 0)
- 
         # Titre
         title = e.get("title") or ""
         title_lengths.append(len(title))
@@ -152,24 +127,7 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         emoji_counts.append(_count_emojis(title))
         has_hashtags.append(1 if "#" in title else 0)
  
-        # Date de publication pour fréquence
-        upload_str = e.get("upload_date") or ""
-        try:
-            pub_dates.append(
-                datetime.strptime(upload_str, "%Y%m%d").replace(tzinfo=timezone.utc)
-            )
-        except Exception:
-            pass
- 
     n = len(views_list) or 1  # évite division par zéro
- 
-    # Fréquence de publication (jours moyens entre 2 posts)
-    upload_frequency_days = None
-    if len(pub_dates) >= 2:
-        pub_dates_sorted = sorted(pub_dates)
-        gaps = [(pub_dates_sorted[i+1] - pub_dates_sorted[i]).days
-                for i in range(len(pub_dates_sorted) - 1)]
-        upload_frequency_days = round(np.mean(gaps), 2) if gaps else None
  
     # Métriques vues
     avg_views    = round(np.mean(views_list), 2)    if views_list else 0
@@ -199,7 +157,6 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         "subscriber_count":         subs,
         "creator_tier":             creator_tier,
         "total_videos":             total_videos,
-        "channel_age_days":         channel_age_days,
  
         # ── Activité récente ─────────────────────────────────
         "shorts_count_sample":      n,
@@ -209,11 +166,8 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         "max_views":                max_views,
         "avg_like_rate":            round(np.mean(like_rates), 6) if like_rates else 0,
         "avg_duration_sec":         round(np.mean(durations), 2)  if durations else 0,
-        "upload_frequency_days":    upload_frequency_days,
  
         # ── Contenu ──────────────────────────────────────────
-        "pct_vertical":             round(np.mean(pct_vert), 4)   if pct_vert   else 0,
-        "pct_has_music":            round(np.mean(pct_music), 4)  if pct_music  else 0,
         "avg_title_length":         round(np.mean(title_lengths), 2) if title_lengths else 0,
         "avg_hook_count":           round(np.mean(hook_counts), 4)   if hook_counts   else 0,
         "avg_emoji_count":          round(np.mean(emoji_counts), 4)  if emoji_counts  else 0,
@@ -308,7 +262,7 @@ if __name__ == "__main__":
     import pandas as pd
     import os
 
-    file_path = "./data.csv"
+    file_path = "./data/data.csv"
     if os.path.exists(file_path):
         df = pd.read_csv(file_path, sep="\t")
         if "channelId" in df.columns and "channel_id" not in df.columns:
@@ -332,7 +286,7 @@ if __name__ == "__main__":
         # ── Extraction ────────────────────────────────────────────
         channel_records = extract_all_channels(channel_ids, max_workers=1)
         df_channels = pd.DataFrame(channel_records)
-        df_channels.to_csv("channel_data.csv", index=False)
+        df_channels.to_csv("./data/channel_data.csv", index=False)
         print("Fichier sauvegardé sous 'channel_data.csv'.")
     else:
         print("Aucune chaîne à extraire.")
