@@ -1,8 +1,5 @@
 key.txt
 jsons
 __pycache__/
-.vscode/
 data/
 test.py
-venv/
-.DS_Store
