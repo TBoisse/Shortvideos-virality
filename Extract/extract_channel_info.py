@@ -60,7 +60,6 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
  
     TAILLE & MATURITÉ
         subscriber_count        → taille de l'audience
-        creator_tier            → nano / micro / mid / macro
         total_videos            → volume de contenu produit
  
     ACTIVITÉ RÉCENTE (basée sur les 30 derniers Shorts)
@@ -91,18 +90,10 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
     # ── Taille & Maturité ─────────────────────────────────────
     subs = int(info.get("channel_follower_count") or 0)
  
-    if subs == 0:             creator_tier = "unknown"
-    elif subs < 10_000:       creator_tier = "nano"
-    elif subs < 100_000:      creator_tier = "micro"
-    elif subs < 1_000_000:    creator_tier = "mid"
-    else:                     creator_tier = "macro"
- 
     total_videos = int(info.get("playlist_count") or len(entries))
  
     # ── Stats sur les Shorts de l'échantillon ─────────────────
     views_list      = []
-    like_rates      = []
-    durations       = []
     title_lengths   = []
     hook_counts     = []
     emoji_counts    = []
@@ -113,12 +104,12 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
             continue
  
         v = int(e.get("view_count") or 0)
-        l = int(e.get("like_count") or 0)
-        d = int(e.get("duration")   or 0)
+        # l = int(e.get("like_count") or 0)
+        # d = int(e.get("duration")   or 0)
  
         views_list.append(v)
-        like_rates.append(l / max(v, 1))
-        durations.append(d)
+        # like_rates.append(l / max(v, 1))
+        # durations.append(d)
  
         # Titre
         title = e.get("title") or ""
@@ -155,7 +146,6 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
  
         # ── Taille & Maturité ────────────────────────────────
         "subscriber_count":         subs,
-        "creator_tier":             creator_tier,
         "total_videos":             total_videos,
  
         # ── Activité récente ─────────────────────────────────
@@ -164,8 +154,6 @@ def parse_channel_info(channel_id: str, info: dict) -> dict:
         "median_views":             median_views,
         "std_views":                std_views,
         "max_views":                max_views,
-        "avg_like_rate":            round(np.mean(like_rates), 6) if like_rates else 0,
-        "avg_duration_sec":         round(np.mean(durations), 2)  if durations else 0,
  
         # ── Contenu ──────────────────────────────────────────
         "avg_title_length":         round(np.mean(title_lengths), 2) if title_lengths else 0,

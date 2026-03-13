@@ -4,5 +4,6 @@ __pycache__/
 data/
 test.py
 .vscode/
+.venv/
 venv/
 .DS_Store
