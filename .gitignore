@@ -3,3 +3,6 @@ jsons
 __pycache__/
 data/
 test.py
+.vscode/
+venv/
+.DS_Store
